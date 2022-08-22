@@ -1,0 +1,113 @@
+From 985369e385eb395ab2e9f91cd5b80ec213398a77 Mon Sep 17 00:00:00 2001
+From: Dinu Mathai <dinumathai@gmail.com>
+Date: Wed, 7 Mar 2018 22:05:26 +0530
+Subject: [PATCH 1/2] Added Global Time To Live for metrics
+
+(cherry picked from commit 29373ec06a2e5ba0a741b432034107972b6228fe)
+Signed-off-by: Tom Wieczorek <twieczorek@mirantis.com>
+---
+ README.md                  |  6 +++++-
+ main.go                    |  3 ++-
+ storage/diskmetricstore.go | 30 ++++++++++++++++++++++++++++++
+ 3 files changed, 37 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 53bb480..e4f13f1 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# Prometheus Pushgateway
++# Prometheus Pushgateway(with Time To Live)
+ 
+ [![CircleCI](https://circleci.com/gh/prometheus/pushgateway/tree/master.svg?style=shield)][circleci]
+ [![Docker Repository on Quay](https://quay.io/repository/prometheus/pushgateway/status)][quay]
+@@ -74,6 +74,10 @@ docker run -d -p 9091:9091 prom/pushgateway
+ 
+ ## Use it
+ 
++### Time To Live
++If we pass a argument `metric.timetolive` at the time of start up(Example : `-metric.timetolive=60s`), 
++the metrics will be removed from pushgateway after the 'metric.timetolive' from the time of pushing the metric.
++
+ ### Configure the Pushgateway as a target to scrape
+ 
+ The Pushgateway has to be configured as a target to scrape by Prometheus, using
+diff --git a/main.go b/main.go
+index e69547b..923c815 100644
+--- a/main.go
++++ b/main.go
+@@ -70,6 +70,7 @@ func main() {
+ 		enableAdminAPI      = app.Flag("web.enable-admin-api", "Enable API endpoints for admin control actions.").Default("false").Bool()
+ 		persistenceFile     = app.Flag("persistence.file", "File to persist metrics. If empty, metrics are only kept in memory.").Default("").String()
+ 		persistenceInterval = app.Flag("persistence.interval", "The minimum interval at which to write out the persistence file.").Default("5m").Duration()
++		timeToLive          = app.Flag("metric.timetolive", "The time to Live interval for metrics").Default("0s").Duration()
+ 		pushUnchecked       = app.Flag("push.disable-consistency-check", "Do not check consistency of pushed metrics. DANGEROUS.").Default("false").Bool()
+ 		promlogConfig       = promlog.Config{}
+ 	)
+@@ -98,7 +99,7 @@ func main() {
+ 		}
+ 	}
+ 
+-	ms := storage.NewDiskMetricStore(*persistenceFile, *persistenceInterval, prometheus.DefaultGatherer, logger)
++	ms := storage.NewDiskMetricStore(*persistenceFile, *persistenceInterval, prometheus.DefaultGatherer, logger, *timeToLive)
+ 
+ 	// Create a Gatherer combining the DefaultGatherer and the metrics from the metric store.
+ 	g := prometheus.Gatherers{
+diff --git a/storage/diskmetricstore.go b/storage/diskmetricstore.go
+index 2013585..a96114a 100644
+--- a/storage/diskmetricstore.go
++++ b/storage/diskmetricstore.go
+@@ -82,6 +82,7 @@ func NewDiskMetricStore(
+ 	persistenceInterval time.Duration,
+ 	gatherPredefinedHelpFrom prometheus.Gatherer,
+ 	logger log.Logger,
++	timeToLive time.Duration,
+ ) *DiskMetricStore {
+ 	// TODO: Do that outside of the constructor to allow the HTTP server to
+ 	//  serve /-/healthy and /-/ready earlier.
+@@ -103,6 +104,7 @@ func NewDiskMetricStore(
+ 	}
+ 
+ 	go dms.loop(persistenceInterval)
++	go dms.doCleanUpInReguarInterval(timeToLive)
+ 	return dms
+ }
+ 
+@@ -456,6 +458,34 @@ func copyMetricFamily(mf *dto.MetricFamily) *dto.MetricFamily {
+ 	}
+ }
+ 
++func (dms *DiskMetricStore) doCleanUpInReguarInterval(timeToLive time.Duration) {
++	if timeToLive == 0 {
++		return
++	}
++	for {
++		dms.cleanupStaleValues(timeToLive)
++		timer1 := time.NewTimer(timeToLive)
++		<-timer1.C
++	}
++}
++
++func (dms *DiskMetricStore) cleanupStaleValues(timeToLive time.Duration) {
++	dms.lock.RLock()
++	defer dms.lock.RUnlock()
++
++	cleanupCycleStartTime := time.Now()
++
++	for metricID, group := range dms.metricGroups {
++		for metricName, tmf := range group.Metrics {
++			if tmf.Timestamp.Add(timeToLive).Before(cleanupCycleStartTime) {
++				delete(group.Metrics, metricName)
++			}
++		}
++		if len(group.Metrics) == 0 {
++			delete(dms.metricGroups, metricID)
++		}
++	}
++}
+ // groupingKeyFor creates a grouping key from the provided map of grouping
+ // labels. The grouping key is created by joining all label names and values
+ // together with model.SeparatorByte as a separator. The label names are sorted
+-- 
+2.36.0
+
