@@ -14,12 +14,12 @@ jobs:
       SOURCE_DATE_EPOCH: "315532800"
 
     steps:
-      - name: Install latest podman and buildah
+      - name: Install latest podman
+        # https://github.com/containers/podman/issues/14065#issuecomment-1221549603
         run: |
-          sudo apt-get -y update
-          sudo apt-get -y install podman buildah
+          wget http://ftp.us.debian.org/debian/pool/main/libp/libpod/podman_4.2.0+ds1-3_amd64.deb
+          sudo dpkg -i podman_4.2.0+ds1-3_amd64.deb
           podman version
-          buildah version
 
       - uses: actions/checkout@v3
         with:
