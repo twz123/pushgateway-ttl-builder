@@ -1,0 +1,5 @@
+FROM gcr.io/distroless/static@sha256:35817ff4e3441ebfa430cfca98121e43cbf4a134412285c2460a9464c97ac2ca
+COPY /usr/ /usr/
+USER 65534
+ENTRYPOINT [ "pushgateway" ]
+CMD ["--version"]

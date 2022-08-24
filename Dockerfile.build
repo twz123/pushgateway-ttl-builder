@@ -1,0 +1,44 @@
+FROM docker.io/library/golang:1.19.0-alpine
+
+RUN apk add --no-cache git make curl yq \
+  && apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing/ binutils-x86_64 binutils-aarch64 binutils-armv7 \
+  && ln -s /usr/bin/x86_64-alpine-linux-musl-strip /usr/local/bin/strip-amd64 \
+  && ln -s /usr/aarch64-alpine-linux-musl/bin/strip /usr/local/bin/strip-arm64 \
+  && ln -s /usr/armv7-alpine-linux-musleabihf/bin/strip /usr/local/bin/strip-arm
+
+ARG VERSION
+RUN set -eu \
+  && git -c advice.detachedHead=false clone -b v$VERSION --depth=1 https://github.com/prometheus/pushgateway.git
+WORKDIR pushgateway
+RUN go mod download
+RUN make promu
+
+COPY *.patch /patches/
+
+ARG K0S_VERSION_SUFFIX SOURCE_DATE_EPOCH
+RUN set -e \
+  && git apply /patches/0001-Added-Global-Time-To-Live-for-metrics.patch \
+  && git apply /patches/0002-Bug-Fix.patch \
+  && sourceDateEpoch="$SOURCE_DATE_EPOCH" \
+  && : "${sourceDateEpoch:=$(date +%s)}" \
+  && buildDate=$(date -u -d "@$sourceDateEpoch" +%Y%m%d-%H:%M:%S) \
+  && BUILD_DATE=$buildDate yq -i ' \
+    . \
+    | .build.flags |= . + " -trimpath" \
+    | .build.ldflags |= (. \
+        | sub("{{.Version}}", env(VERSION) + "+" + env(K0S_VERSION_SUFFIX)) \
+        | sub("{{user}}@{{host}}", "k0s") \
+        | sub("{{date \"20060102-15:04:05\"}}", env(BUILD_DATE)) \
+      ) \
+    ' .promu.yml
+
+ARG GOARCH
+RUN set -eu \
+  && make common-build GOARCH=$GOARCH \
+  && mkdir -p /dist/usr/local/bin \
+  && strip-$GOARCH /go/pushgateway/pushgateway \
+  && mv /go/pushgateway/pushgateway /dist/usr/local/bin/pushgateway \
+  && find /dist -depth -exec touch -c -d @$SOURCE_DATE_EPOCH '{}' \;
+COPY Dockerfile.image /dist/Dockerfile
+
+CMD [ "tar", "-C", "/dist", "-c", "Dockerfile", "usr" ]
