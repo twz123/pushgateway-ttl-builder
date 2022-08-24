@@ -15,7 +15,8 @@ RUN make promu
 
 COPY *.patch /patches/
 
-ARG K0S_VERSION_SUFFIX SOURCE_DATE_EPOCH
+ARG K0S_VERSION_SUFFIX
+ARG SOURCE_DATE_EPOCH
 RUN set -e \
   && git apply /patches/0001-Added-Global-Time-To-Live-for-metrics.patch \
   && git apply /patches/0002-Bug-Fix.patch \
