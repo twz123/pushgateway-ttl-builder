@@ -16,8 +16,8 @@ jobs:
         reproducible: [blue, green]
 
     outputs:
-      blue-manifest: ${{ steps.store-manifest.blue-manifest }}
-      green-manifest: ${{ steps.store-manifest.green-manifest }}
+      blue-manifest: ${{ steps.store-manifest.outputs.blue-manifest }}
+      green-manifest: ${{ steps.store-manifest.outputs.green-manifest }}
 
     steps:
       - name: Install Podman v4.2.0
