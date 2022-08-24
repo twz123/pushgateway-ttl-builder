@@ -35,6 +35,10 @@ then built without any `RUN` directives.
 
 **Note**: Docker won't be able to create reproducible images.
 
+**Note**: Reproducible builds are independent of the Podman version starting
+with Podman v4.2 or newer. Previous versions add their version as a label in the
+produced images.
+
 **Note**: Both Podman and Buildah are required in order to create the
 multi-architecture image manifest. Docker may be used for local testing. Docker
 is able to produce (non-reproducible) images, but it will fail to generate the

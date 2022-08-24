@@ -1,4 +1,4 @@
-name: Multiarch OCI image
+name: Multiarch image
 
 on:
   push:
@@ -14,44 +14,28 @@ jobs:
       SOURCE_DATE_EPOCH: "315532800"
 
     steps:
-      - name: Install latest podman
+      - name: Install Podman v4.2.0
         # https://github.com/containers/podman/issues/14065#issuecomment-1221549603
         run: |
-          set -x
-          sudo apt-get purge podman
-          cat ~/.config/containers/storage.conf || true
-          sudo cat /etc/containers/storage.conf || true
           wget http://ftp.us.debian.org/debian/pool/main/libp/libpod/podman_4.2.0+ds1-3_amd64.deb
           sudo dpkg -i podman_4.2.0+ds1-3_amd64.deb
-          cat ~/.config/containers/storage.conf || true
-          sudo cat /etc/containers/storage.conf || true
           mkdir -p ~/.config/containers
           echo '[storage]' >> ~/.config/containers/storage.conf
           echo 'driver = "overlay"' >> ~/.config/containers/storage.conf
-          cat ~/.config/containers/storage.conf || true
           podman version
 
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           persist-credentials: false
 
-      - name: Make images
-        run: make images
+      - name: 'Make: OCI manifest'
         timeout-minutes: 10
-
-      - name: Upload context.amd64.tar
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: context.amd64.tar
-          path: .build/1.4.3+k0s.latest-315532800/context.amd64.tar
-
-      - name: Make OCI manifest
         run: make oci-manifest
 
       - name: List local images
+        if: always()
         run: podman images --format "table {{.ID}} {{.Repository}} {{.Tag}} {{.Labels}} {{.Digest}}"
 
-      - name: >-
-          Smoke test: Run manifest
+      - name: 'Smoke test: Run manifest'
         run: podman run --rm -- "$(cat .build/*/manifest.iid)"
