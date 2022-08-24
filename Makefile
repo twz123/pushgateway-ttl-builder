@@ -20,8 +20,7 @@ ifeq "$(shell command -v $(PODMAN))" ""
 BUILDX = $(DOCKER) buildx build
 all: images
 else
-# --identity-label false
-BUILDX = $(PODMAN) build --timestamp $(SOURCE_DATE_EPOCH)
+BUILDX = $(PODMAN) build --identity-label=false --timestamp $(SOURCE_DATE_EPOCH)
 DOCKER = $(PODMAN)
 all: $(if "$(shell command -v $(BUILDAH))",oci-manifest,images)
 endif
