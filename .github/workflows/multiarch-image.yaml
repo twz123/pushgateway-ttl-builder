@@ -40,6 +40,7 @@ jobs:
         timeout-minutes: 10
 
       - name: Upload context.amd64.tar
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: context.amd64.tar
