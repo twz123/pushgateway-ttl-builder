@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build multi-architecture image
+    name: Build image
     runs-on: ubuntu-22.04
 
     strategy:
@@ -61,7 +61,11 @@ jobs:
           BLUE_MANIFEST: ${{ needs.build.outputs.blue-manifest }}
           GREEN_MANIFEST: ${{ needs.build.outputs.green-manifest }}
         run: |
+          if [ -z "$BLUE_MANIFEST" ] || [ -z "$GREEN_MANIFEST" ]; then
+            echo ::error::Manifests missing!
+            exit 1
+          fi
           if [ "$BLUE_MANIFEST" != "$GREEN_MANIFEST" ]; then
-            echo ::error::Build was not reproducible
+            echo ::error::Build was not reproducible!
             exit 1
           fi
