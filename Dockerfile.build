@@ -41,5 +41,4 @@ RUN set -eu \
   && mv /go/pushgateway/pushgateway /dist/usr/local/bin/pushgateway \
   && find /dist -depth -exec touch -c -d @$SOURCE_DATE_EPOCH '{}' \;
 COPY Dockerfile.image /dist/Dockerfile
-
-CMD [ "tar", "-C", "/dist", "-c", "Dockerfile", "usr" ]
+RUN tar -C /dist -cvf /dist/context.$GOARCH.tar Dockerfile usr

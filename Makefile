@@ -71,7 +71,13 @@ $(buildDir)/image.%.iid: $(buildDir)/context.%.tar
 	  - < $<
 
 $(buildDir)/context.%.tar: $(buildDir)/build.%.iid
-	$(DOCKER) run --rm -- "$$(cat -- $<)" > $@.tmp
+	$(DOCKER) run --rm -v '$(realpath $(dir $@)):/out' \
+	  --entrypoint sh \
+	  --workdir /dist \
+	  -- "$$(cat -- $<)" \
+	  -c \
+	  'chown $(shell id -u):$(shell id -g) "$$1" && cp "$$1" "/out/$$1.tmp"' \
+	  -- '$(notdir $@)'
 	mv -- $@.tmp $@
 
 $(buildDir)/build.%.iid: Dockerfile.build Dockerfile.image *.patch | $(buildDir)
