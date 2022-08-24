@@ -14,19 +14,30 @@ jobs:
       SOURCE_DATE_EPOCH: "315532800"
 
     steps:
+      - name: Install latest podman and buildah
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install podman buildah
+          podman version
+          buildah version
+
       - uses: actions/checkout@v3
         with:
           persist-credentials: false
 
-      - run: podman version
-      - run: buildah version
-      - run: make images
+      - name: Make images
+        run: make images
+        timeout-minutes: 10
 
-      - name: Upload compiled binary
+      - name: Upload context.amd64.tar
         uses: actions/upload-artifact@v3
         with:
           name: context.amd64.tar
           path: .build/1.4.3+k0s.latest-315532800/context.amd64.tar
 
-      - run: make oci-manifest
-      - run: podman run --rm -- "$(cat .build/*/manifest.iid)"
+      - name: Make OCI manifest
+        run: make oci-manifest
+
+      - name: >-
+          Smoke test: Run manifest
+        run: podman run --rm -- "$(cat .build/*/manifest.iid)"
