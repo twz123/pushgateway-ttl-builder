@@ -15,5 +15,7 @@ jobs:
         with:
           persist-credentials: false
 
+      - run: podman version
+      - run: buildah version
       - run: make oci-manifest
       - run: podman run --rm -- "$(cat .build/*/manifest.iid)"
