@@ -25,6 +25,7 @@ jobs:
           sudo dpkg -i podman_4.2.0+ds1-3_amd64.deb
           cat ~/.config/containers/storage.conf || true
           sudo cat /etc/containers/storage.conf || true
+          mkdir -p ~/.config/containers
           echo '[storage]' >> ~/.config/containers/storage.conf
           echo 'driver = "vfs"' >> ~/.config/containers/storage.conf
           cat ~/.config/containers/storage.conf || true
