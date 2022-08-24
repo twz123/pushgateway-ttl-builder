@@ -49,6 +49,9 @@ jobs:
       - name: Make OCI manifest
         run: make oci-manifest
 
+      - name: List local images
+        run: podman images --format "table {{.ID}} {{.Repository}} {{.Tag}} {{.Labels}} {{.Digest}}"
+
       - name: >-
           Smoke test: Run manifest
         run: podman run --rm -- "$(cat .build/*/manifest.iid)"
