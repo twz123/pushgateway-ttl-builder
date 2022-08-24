@@ -6,12 +6,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  multiarch-build:
+  build:
     name: Build multi-architecture image
     runs-on: ubuntu-22.04
 
-    env:
-      SOURCE_DATE_EPOCH: "315532800"
+    strategy:
+      fail-fast: false
+      matrix:
+        reproducible: [blue, green]
+
+    outputs:
+      blue-manifest: ${{ steps.store-manifest.blue-manifest }}
+      green-manifest: ${{ steps.store-manifest.green-manifest }}
 
     steps:
       - name: Install Podman v4.2.0
@@ -39,3 +45,23 @@ jobs:
 
       - name: 'Smoke test: Run manifest'
         run: podman run --rm -- "$(cat .build/*/manifest.iid)"
+
+      - name: Store ${{ matrix.reproducible }} manifest
+        id: store-manifest
+        run: podman manifest inspect "$(cat .build/*/manifest.iid)" | jq --raw-output '"::set-output name=${{ matrix.reproducible }}-manifest::" + tojson'
+
+  verify:
+    name: Verify reproducible builds
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Verify
+        env:
+          BLUE_MANIFEST: ${{ needs.build.outputs.blue-manifest }}
+          GREEN_MANIFEST: ${{ needs.build.outputs.green-manifest }}
+        run: |
+          if [ "$BLUE_MANIFEST" != "$GREEN_MANIFEST" ]; then
+            echo ::error::Build was not reproducible
+            exit 1
+          fi
