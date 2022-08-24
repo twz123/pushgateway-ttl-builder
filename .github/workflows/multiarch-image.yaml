@@ -14,16 +14,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        reproducible: [blue, green]
+        reproducible: [main, control]
         include:
-          - reproducible: blue
+          - reproducible: main
             push: ${{ startsWith(github.ref, 'refs/tags/') }}
-          - reproducible: green
+          - reproducible: control
 
     outputs:
       iid: ${{ steps.run-manifest.outputs.iid }}
-      blue-manifest: ${{ steps.store-manifest.outputs.blue-manifest }}
-      green-manifest: ${{ steps.store-manifest.outputs.green-manifest }}
+      main-manifest: ${{ steps.store-manifest.outputs.main-manifest }}
+      control-manifest: ${{ steps.store-manifest.outputs.control-manifest }}
 
     steps:
       - name: Install Podman v4.2.0
@@ -85,14 +85,14 @@ jobs:
     steps:
       - name: Verify
         env:
-          BLUE_MANIFEST: ${{ needs.build.outputs.blue-manifest }}
-          GREEN_MANIFEST: ${{ needs.build.outputs.green-manifest }}
+          MAIN_MANIFEST: ${{ needs.build.outputs.main-manifest }}
+          CONTROL_MANIFEST: ${{ needs.build.outputs.control-manifest }}
         run: |
-          if [ -z "$BLUE_MANIFEST" ] || [ -z "$GREEN_MANIFEST" ]; then
+          if [ -z "$MAIN_MANIFEST" ] || [ -z "$CONTROL_MANIFEST" ]; then
             echo ::error::Manifests missing!
             exit 1
           fi
-          if [ "$BLUE_MANIFEST" != "$GREEN_MANIFEST" ]; then
+          if [ "$MAIN_MANIFEST" != "$CONTROL_MANIFEST" ]; then
             echo ::error::Build was not reproducible!
             exit 1
           fi
