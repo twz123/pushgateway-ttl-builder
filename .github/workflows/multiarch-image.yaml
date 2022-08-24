@@ -17,10 +17,16 @@ jobs:
       - name: Install latest podman
         # https://github.com/containers/podman/issues/14065#issuecomment-1221549603
         run: |
+          set -x
           sudo apt-get purge podman
-          rm -rf .local/share/containers/libpod
+          cat ~/.config/containers/storage.conf || true
+          cat /etc/containers/storage.conf || true
           wget http://ftp.us.debian.org/debian/pool/main/libp/libpod/podman_4.2.0+ds1-3_amd64.deb
           sudo dpkg -i podman_4.2.0+ds1-3_amd64.deb
+          cat ~/.config/containers/storage.conf || true
+          cat /etc/containers/storage.conf || true
+          sed -i 's/#driver = "overlay"/driver = "vfs"/' /etc/containers/storage.conf
+          cat /etc/containers/storage.conf || true
           podman version
 
       - uses: actions/checkout@v3
