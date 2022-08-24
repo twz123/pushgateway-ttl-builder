@@ -27,7 +27,7 @@ jobs:
           sudo cat /etc/containers/storage.conf || true
           mkdir -p ~/.config/containers
           echo '[storage]' >> ~/.config/containers/storage.conf
-          echo 'driver = "vfs"' >> ~/.config/containers/storage.conf
+          echo 'driver = "overlay"' >> ~/.config/containers/storage.conf
           cat ~/.config/containers/storage.conf || true
           podman version
 
