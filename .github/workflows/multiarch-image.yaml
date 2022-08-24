@@ -2,8 +2,8 @@ name: Multiarch image
 
 on:
   push:
-    # tags:
-    #   - 'v*'
+    tags:
+      - 'v*'
   pull_request:
 
 jobs:
@@ -62,19 +62,19 @@ jobs:
           IID: ${{ steps.run-manifest.outputs.iid }}
         run: podman manifest inspect "$IID" | jq --raw-output '"::set-output name=${{ matrix.reproducible }}-manifest::" + tojson'
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to Quay.io
         if: matrix.push
         uses: redhat-actions/podman-login@v1
         with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ghcr.io
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+          registry: quay.io
 
-      - name: Push to GitHub Container Registry
+      - name: Push to Quay.io
         if: matrix.push
         env:
           IID: ${{ steps.run-manifest.outputs.iid }}
-          IMAGE: docker://ghcr.io/${{ github.repository_owner }}/pushgateway-ttl:${{ github.ref_name }}
+          IMAGE: docker://quay.io/k0sproject/pushgateway-ttl:${{ github.ref_name }}
         run: podman manifest push --all "$IID" "$IMAGE"
 
   verify:
