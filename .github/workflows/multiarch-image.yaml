@@ -17,6 +17,7 @@ jobs:
       - name: Install latest podman
         # https://github.com/containers/podman/issues/14065#issuecomment-1221549603
         run: |
+          sudo apt-get purge podman
           wget http://ftp.us.debian.org/debian/pool/main/libp/libpod/podman_4.2.0+ds1-3_amd64.deb
           sudo dpkg -i podman_4.2.0+ds1-3_amd64.deb
           podman version
