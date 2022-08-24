@@ -1,4 +1,4 @@
-IMAGE_NAME ?= ghcr.io/k0sproject/pushgateway-ttl
+IMAGE_NAME ?= pushgateway-ttl
 VERSION = 1.4.3
 K0S_VERSION_SUFFIX = k0s.latest
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --pretty=%ct || date +%s)

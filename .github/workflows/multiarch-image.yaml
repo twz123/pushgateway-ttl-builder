@@ -2,8 +2,9 @@ name: Multiarch image
 
 on:
   push:
+    # tags:
+    #   - 'v*'
   pull_request:
-  workflow_dispatch:
 
 jobs:
   build:
@@ -14,8 +15,13 @@ jobs:
       fail-fast: false
       matrix:
         reproducible: [blue, green]
+        include:
+          - reproducible: blue
+            push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          - reproducible: green
 
     outputs:
+      iid: ${{ steps.run-manifest.outputs.iid }}
       blue-manifest: ${{ steps.store-manifest.outputs.blue-manifest }}
       green-manifest: ${{ steps.store-manifest.outputs.green-manifest }}
 
@@ -44,11 +50,32 @@ jobs:
         run: podman images --format "table {{.ID}} {{.Repository}} {{.Tag}} {{.Labels}} {{.Digest}}"
 
       - name: 'Smoke test: Run manifest'
-        run: podman run --rm -- "$(cat .build/*/manifest.iid)"
+        id: run-manifest
+        run: |
+          iid=$(cat .build/*/manifest.iid)
+          echo "::set-output name=iid::$iid"
+          podman run --rm -- "$iid"
 
       - name: Store ${{ matrix.reproducible }} manifest
         id: store-manifest
-        run: podman manifest inspect "$(cat .build/*/manifest.iid)" | jq --raw-output '"::set-output name=${{ matrix.reproducible }}-manifest::" + tojson'
+        env:
+          IID: ${{ steps.run-manifest.outputs.iid }}
+        run: podman manifest inspect "$IID" | jq --raw-output '"::set-output name=${{ matrix.reproducible }}-manifest::" + tojson'
+
+      - name: Log in to GitHub Container Registry
+        if: matrix.push
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+
+      - name: Push to GitHub Container Registry
+        if: matrix.push
+        env:
+          IID: ${{ steps.run-manifest.outputs.iid }}
+          IMAGE: docker://ghcr.io/${{ github.repository_owner }}/pushgateway-ttl:${{ github.ref_name }}
+        run: podman manifest push --all "$IID" "$IMAGE"
 
   verify:
     name: Verify reproducible builds
