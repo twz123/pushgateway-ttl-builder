@@ -10,7 +10,7 @@ BUILDAH ?= buildah
 arches := amd64 arm64 arm
 
 image := $(IMAGE_NAME):v$(VERSION)-$(K0S_VERSION_SUFFIX)
-image-args-id := $(VERSION)+$(K0S_VERSION_SUFFIX)-$(SOURCE_DATE_EPOCH)
+buildDir := .build/$(VERSION)+$(K0S_VERSION_SUFFIX)-$(SOURCE_DATE_EPOCH)
 
 .SECONDARY: # keep all intermediate targets
 
@@ -27,21 +27,29 @@ all: $(if "$(shell command -v $(BUILDAH))",oci-manifest,images)
 endif
 
 .PHONY: oci-manifest
-oci-manifest: .manifest.$(image-args-id).iid
+oci-manifest: $(buildDir)/manifest.iid
 	$(info OCI image manifest $(image): $(shell cat -- $<))
 	$(info Build timestamp: $(shell date -u -d '@$(SOURCE_DATE_EPOCH)' 2>/dev/null || date -u -r '$(SOURCE_DATE_EPOCH)' 2>/dev/null))
 	@$(BUILDAH) manifest inspect -- "$$(cat -- $<)"
 
 .PHONY: images
-images: $(foreach arch,$(arches),.image.$(arch).iid)
+images: $(foreach arch,$(arches),$(buildDir)/image.$(arch).iid)
 	$(info Images have been built.)
-	$(info To generate the muliatrch OCI manifest, use `$(MAKE) oci-manifest`. Requires podman and buildah.)
+	$(info To generate the multiarch OCI manifest, use `$(MAKE) oci-manifest`. Requires podman and buildah.)
 	$(info Build timestamp: $(shell date -u -d '@$(SOURCE_DATE_EPOCH)' 2>/dev/null || date -u -r '$(SOURCE_DATE_EPOCH)' 2>/dev/null))
 	@for iidFile in $^; do \
-	  printf '%s: %s\n' "$$iidFile" "$$(cat -- $$iidFile)"; \
+	  ver=$${iidFile#.build/}; \
+	  ver=$${ver%%/*}; \
+	  ver=$${ver%-*}; \
+	  arch=$${iidFile##*/image.}; \
+	  arch=$${arch%.iid}; \
+	  printf '%s %s: %s\n' "$$ver" "$$arch" "$$(cat -- $$iidFile)"; \
 	done
 
-.manifest.$(image-args-id).iid: $(foreach arch,$(arches),.image.$(arch).iid)
+$(buildDir):
+	mkdir -p $@
+
+$(buildDir)/manifest.iid: $(foreach arch,$(arches),$(buildDir)/image.$(arch).iid)
 	-$(BUILDAH) manifest rm -- $(image)
 	set -- && \
 	  for iidFile in $^; do \
@@ -57,32 +65,31 @@ images: $(foreach arch,$(arches),.image.$(arch).iid)
 	  }
 	mv $@.tmp $@
 
-.image.%.iid: .context.%.tar
+$(buildDir)/image.%.iid: $(buildDir)/context.%.tar
 	$(BUILDX) --iidfile $@ \
-	  --platform linux/$(patsubst .image.%.iid,%,$@) \
+	  --platform linux/$(patsubst $(buildDir)/image.%.iid,%,$@) \
 	  - < $<
 
-.context.%.tar: .build.%.iid
+$(buildDir)/context.%.tar: $(buildDir)/build.%.iid
 	$(DOCKER) run --rm -- "$$(cat -- $<)" > $@.tmp
 	mv -- $@.tmp $@
 
-.build.%.iid: Dockerfile.build Dockerfile.image *.patch
+$(buildDir)/build.%.iid: Dockerfile.build Dockerfile.image *.patch | $(buildDir)
 	$(DOCKER) build --iidfile $@ \
-	  --build-arg GOARCH=$(patsubst .build.%.iid,%,$@) \
+	  --build-arg GOARCH=$(patsubst $(buildDir)/build.%.iid,%,$@) \
 	  --build-arg VERSION=$(VERSION) \
 	  --build-arg K0S_VERSION_SUFFIX=$(K0S_VERSION_SUFFIX) \
 	  --build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) \
 	  -f $< .
 
+.PHONY: clean
 clean:
-	for iidFile in .manifest.*.iid; do \
+	for iidFile in .build/*/manifest.iid; do \
 	  [ -f $$iidFile ] || continue; \
-	  $(DOCKER) manifest rm -f -- $$(cat -- $$iidFile); \
-	  rm -- $$iidFile; \
+	  $(DOCKER) manifest rm -- $$(cat -- $$iidFile) || true; \
 	done
-	for iidFile in .image.*.iid .build.*.iid; do \
+	for iidFile in .build/*/image.*.iid .build/*/build.*.iid; do \
 	  [ -f $$iidFile ] || continue; \
-	  $(DOCKER) rmi -f -- $$(cat -- $$iidFile); \
-	  rm -- $$iidFile; \
+	  $(DOCKER) rmi -f -- $$(cat -- $$iidFile) || true; \
 	done
-	-rm .context.*.tar .*.tmp
+	rm -rf .build

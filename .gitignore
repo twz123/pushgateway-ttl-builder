@@ -1,3 +1,1 @@
-/.*.iid
-/.context.*.tar
-/*.tmp
+/.build/

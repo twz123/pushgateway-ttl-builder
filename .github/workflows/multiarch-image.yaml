@@ -1,0 +1,19 @@
+name: Multiarch OCI image
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  multiarch-build:
+    name: Build multi-architecture image
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - run: make oci-manifest
+      - run: podman run --rm -- "$(cat .build/*/manifest.iid)"
