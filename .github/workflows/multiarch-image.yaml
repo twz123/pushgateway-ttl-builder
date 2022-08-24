@@ -10,6 +10,9 @@ jobs:
     name: Build multi-architecture image
     runs-on: ubuntu-22.04
 
+    env:
+      SOURCE_DATE_EPOCH: "315532800"
+
     steps:
       - uses: actions/checkout@v3
         with:
@@ -17,5 +20,13 @@ jobs:
 
       - run: podman version
       - run: buildah version
+      - run: make images
+
+      - name: Upload compiled binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: context.amd64.tar
+          path: .build/1.4.3+k0s.latest-315532800/context.amd64.tar
+
       - run: make oci-manifest
       - run: podman run --rm -- "$(cat .build/*/manifest.iid)"
