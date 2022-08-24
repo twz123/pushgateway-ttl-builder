@@ -25,8 +25,9 @@ jobs:
           sudo dpkg -i podman_4.2.0+ds1-3_amd64.deb
           cat ~/.config/containers/storage.conf || true
           sudo cat /etc/containers/storage.conf || true
-          sudo sed -i 's/#driver = "overlay"/driver = "vfs"/' /etc/containers/storage.conf
-          sudo cat /etc/containers/storage.conf || true
+          echo '[storage]' >> ~/.config/containers/storage.conf
+          echo 'driver = "vfs"' >> ~/.config/containers/storage.conf
+          cat ~/.config/containers/storage.conf || true
           podman version
 
       - uses: actions/checkout@v3
