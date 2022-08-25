@@ -22,7 +22,7 @@ all: images
 else
 BUILDX = $(PODMAN) build --identity-label=false --timestamp $(SOURCE_DATE_EPOCH)
 DOCKER = $(PODMAN)
-all: $(if "$(shell command -v $(BUILDAH))",oci-manifest,images)
+all: $(if $(shell command -v $(BUILDAH)),oci-manifest,images)
 endif
 
 .PHONY: oci-manifest
