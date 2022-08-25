@@ -74,6 +74,13 @@ jobs:
           IID: ${{ steps.run-manifest.outputs.iid }}
         run: podman manifest inspect "$IID" | jq --raw-output '"::set-output name=${{ matrix.reproducible }}-manifest::" + tojson'
 
+      - name: Upload build directory
+        if: matrix.push == ''
+        uses: actions/upload-artifact@v3
+        with:
+          name: build
+          path: .build
+
       - name: Log in to ${{ env.IMAGE_REGISTRY }}
         if: matrix.push
         uses: redhat-actions/podman-login@v1
