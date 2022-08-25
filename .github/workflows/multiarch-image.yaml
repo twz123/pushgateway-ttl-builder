@@ -8,6 +8,11 @@ on:
       - v*
   pull_request:
 
+env:
+  IMAGE_NAME: ${{ github.repository_owner }}/pushgateway-ttl
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_REGISTRY_USER: ${{ github.actor }}
+
 jobs:
   build:
     name: Build image
@@ -30,12 +35,16 @@ jobs:
     steps:
       - name: Install Podman v4.2.0
         # https://github.com/containers/podman/issues/14065#issuecomment-1221549603
+        env:
+          PODMAN_DEB: podman_4.2.0+ds1-3_amd64.deb
         run: |
-          wget http://ftp.us.debian.org/debian/pool/main/libp/libpod/podman_4.2.0+ds1-3_amd64.deb
-          sudo dpkg -i podman_4.2.0+ds1-3_amd64.deb
+          wget http://ftp.us.debian.org/debian/pool/main/libp/libpod/$PODMAN_DEB
+          sudo dpkg -i $PODMAN_DEB && rm $PODMAN_DEB
           mkdir -p ~/.config/containers
-          echo '[storage]' >> ~/.config/containers/storage.conf
-          echo 'driver = "overlay"' >> ~/.config/containers/storage.conf
+          {
+            echo '[storage]'
+            echo 'driver = "overlay"'
+          } > ~/.config/containers/storage.conf
           podman version
 
       - name: Checkout
@@ -64,19 +73,19 @@ jobs:
           IID: ${{ steps.run-manifest.outputs.iid }}
         run: podman manifest inspect "$IID" | jq --raw-output '"::set-output name=${{ matrix.reproducible }}-manifest::" + tojson'
 
-      - name: Log in to Quay.io
+      - name: Log in to ${{ env.IMAGE_REGISTRY }}
         if: matrix.push
         uses: redhat-actions/podman-login@v1
         with:
-          username: ${{ secrets.QUAY_USER }}
-          password: ${{ secrets.QUAY_PASSWORD }}
-          registry: quay.io
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ env.IMAGE_REGISTRY_USER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to Quay.io
+      - name: Push to ${{ env.IMAGE_REGISTRY }}
         if: matrix.push
         env:
           IID: ${{ steps.run-manifest.outputs.iid }}
-          IMAGE: docker://quay.io/k0sproject/pushgateway-ttl:${{ github.ref_name }}
+          IMAGE: docker://${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
         run: podman manifest push --all "$IID" "$IMAGE"
 
   verify:
